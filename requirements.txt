@@ -1,0 +1,2 @@
+PixivPy>=3.5.2
+requests>=2.22.0

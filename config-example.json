@@ -1,0 +1,17 @@
+{
+  "pixiv_username": "username",
+  "pixiv_password": "123456",
+  "discord_hook_urls": [
+    "https://discord.com/api/webhooks/777777777777777777/ABCDEFG",
+    "https://discord.com/api/webhooks/777777777777777777/ABCDEFG"
+  ],
+  "main_tag": "video_game",
+  "sub_tags": [
+    ["character_a", "Found", "Missed"],
+    ["character_b", "Found", "Missed"]
+  ],
+  "wildcard": false,
+  "allow_R18": false,
+  "allow_R18-G": false,
+  "allow_manga": false
+}
