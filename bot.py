@@ -37,7 +37,7 @@ from time import sleep
 import pixivpy3 as pixiv
 import requests
 
-prog_ver = '1.0.0'
+prog_ver = '1.0.1'
 prog_use = 'Usage: %prog [options] <config_file>'
 
 log = logging.getLogger()
@@ -246,11 +246,18 @@ def main():
 
     # everybody walk the dinosaur
     for sub_tag in config['sub_tags']:
-        search_and_post(api, options, config, history, *sub_tag)
+        try:
+            search_and_post(api, options, config, history, *sub_tag)
+        except pixiv.utils.PixivError as ex:
+            log.error("Pixiv error: %s" % str(ex))
+
     # wildcard
     if config['wildcard']:
-        search_and_post(api, options, config, history, config['main_tag'],
-                "Today's wildcard is...", "")
+        try:
+            search_and_post(api, options, config, history, config['main_tag'],
+                    "Today's wildcard is...", "")
+        except pixiv.utils.PixivError as ex:
+            log.error("Pixiv error: %s" % str(ex))
 
     # save history
     save_history(history_fp, history)
