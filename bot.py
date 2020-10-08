@@ -131,8 +131,7 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
             # ready to post to Discord
             for webhook in webhooks:
                 if len(found_msg) > 0:
-                    requests.post(webhook, data={'content': found_msg})
-                requests.post(webhook, files={'file': open(img_path, 'rb')})
+                    requests.post(webhook, data={'content': found_msg}, files={'file': open(img_path, 'rb')})
             # rate limit
             sleep(5)
 
@@ -146,7 +145,7 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
                     "('%s', '%s')" % (main_tag, sub_tag))
         if len(missing_msg) > 0:
             for webhook in webhooks:
-                requests.post(webhook, data={'content': missing_msg})
+                requests.post(webhook, data={'content': sub_tag + " : " + missing_msg})
 
 def load_history(history_fp):
     """Load the history file"""
