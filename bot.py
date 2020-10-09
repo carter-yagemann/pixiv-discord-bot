@@ -131,8 +131,7 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
             # ready to post to Discord
             for webhook in webhooks:
                 if len(found_msg) > 0:
-                    requests.post(webhook, data={'content': found_msg})
-                requests.post(webhook, files={'file': open(img_path, 'rb')})
+                    requests.post(webhook, data={'content': found_msg}, files={'file': open(img_path, 'rb')})
             # rate limit
             sleep(5)
 
