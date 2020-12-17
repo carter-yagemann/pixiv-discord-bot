@@ -114,14 +114,29 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
     if chosen_urls:
         # download image locally
         img_name = os.path.basename(chosen_urls['large'])
-        api.download(chosen_urls['large'], path='/tmp', name=img_name)
         img_path = os.path.join('/tmp', img_name)
+
+        try:
+            api.download(chosen_urls['large'], path='/tmp', name=img_name)
+        except pixiv.utils.PixivError as ex:
+            # Pixiv CDN can sometimes refuse to serve an image, no amount of
+            # retries will fix it, add to history so it's skipped in the future
+            log.error("Failed to download URL: %s - %s" % (chosen_urls['large'], str(ex)))
+            history.add(chosen_urls['large'])
+            return
 
         # Discord has a 8MB file upload limit. If image is too big, grab the
         # px_480mw version.
         if os.path.getsize(img_path) > 0x800000:
             os.remove(img_path)
-            api.download(chosen_urls['px_480mw'], path='/tmp', name=img_name)
+
+            try:
+                api.download(chosen_urls['px_480mw'], path='/tmp', name=img_name)
+            except pixiv.utils.PixivError as ex:
+                # again, Pixiv CDN can permanently refuse to serve some images
+                log.error("Failed to download URL: %s - %s" % (chosen_urls['px_480mw'], str(ex)))
+                history.add(chosen_urls['large'])
+                return
 
         # if this is somehow still too large, we're out of luck
         if os.path.getsize(img_path) > 0x800000:
@@ -131,7 +146,8 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
             # ready to post to Discord
             for webhook in webhooks:
                 if len(found_msg) > 0:
-                    requests.post(webhook, data={'content': found_msg}, files={'file': open(img_path, 'rb')})
+                    requests.post(webhook, data={'content': found_msg},
+                            files={'file': open(img_path, 'rb')})
             # rate limit
             sleep(5)
 
