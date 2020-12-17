@@ -37,7 +37,7 @@ from time import sleep
 import pixivpy3 as pixiv
 import requests
 
-prog_ver = '1.0.2'
+prog_ver = '1.0.3'
 prog_use = 'Usage: %prog [options] <config_file>'
 
 log = logging.getLogger()
