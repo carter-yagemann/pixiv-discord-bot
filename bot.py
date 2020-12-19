@@ -37,7 +37,7 @@ from time import sleep
 import pixivpy3 as pixiv
 import requests
 
-prog_ver = '1.0.3'
+prog_ver = '1.0.4'
 prog_use = 'Usage: %prog [options] <config_file>'
 
 log = logging.getLogger()
@@ -121,7 +121,7 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
         except pixiv.utils.PixivError as ex:
             # Pixiv CDN can sometimes refuse to serve an image, no amount of
             # retries will fix it, add to history so it's skipped in the future
-            log.error("Failed to download URL: %s - %s" % (chosen_urls['large'], str(ex)))
+            log.warning("Failed to download URL: %s - %s" % (chosen_urls['large'], str(ex)))
             history.add(chosen_urls['large'])
             return
 
@@ -134,7 +134,7 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
                 api.download(chosen_urls['px_480mw'], path='/tmp', name=img_name)
             except pixiv.utils.PixivError as ex:
                 # again, Pixiv CDN can permanently refuse to serve some images
-                log.error("Failed to download URL: %s - %s" % (chosen_urls['px_480mw'], str(ex)))
+                log.warning("Failed to download URL: %s - %s" % (chosen_urls['px_480mw'], str(ex)))
                 history.add(chosen_urls['large'])
                 return
 
