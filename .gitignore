@@ -144,3 +144,4 @@ cython_debug/
 # history file
 /history
 /history.tmp
+/refresh

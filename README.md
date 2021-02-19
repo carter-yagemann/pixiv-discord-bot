@@ -9,6 +9,19 @@ pip install -r requirments.txt
 
 See `config-example.json` for an example config.
 
+### Regarding Password Authentication
+
+Pixiv has removed password authentication, breaking the intended workflow
+for this program. As a temporary workaround, this bot now requires a
+valid refresh token to be written to a file named `refresh`, placed at the
+root of this repository.
+
+The PixivPy developers are aware of this
+[issue](https://github.com/upbit/pixivpy/issues/158) and have created a
+semi-auto way of extracting valid refresh tokens. See
+this [gist](https://gist.github.com/upbit/6edda27cb1644e94183291109b8a5fde)
+for details.
+
 ## Usage
 
 ```

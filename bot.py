@@ -237,6 +237,30 @@ def init_logging(level):
     handler.setFormatter(logging.Formatter(log_fmt))
     log.addHandler(handler)
 
+def refresh_auth(api, refresh_fp):
+    """Pixiv recently removed password authentication. This method implements a workaround
+    using a prior refresh token to get a new auth token."""
+    if not os.path.isfile(refresh_fp):
+        log.error("Pixiv has removed password authentication. As a workaround, you must create "
+                  "%s and place a valid refresh token in it. For details, see: "
+                  "https://gist.github.com/upbit/6edda27cb1644e94183291109b8a5fde and "
+                  "https://github.com/upbit/pixivpy/issues/158" % refresh_fp)
+        sys.exit(3)
+
+    with open(refresh_fp, 'r') as ifile:
+        token = ifile.read().strip()
+
+    log.debug("Old refresh token: %s" % token)
+
+    api.auth(refresh_token=token)
+
+    log.debug("New refresh token: %s" % api.refresh_token)
+
+    # refresh token doesn't appear to change even after using it, but just in case,
+    # we write it back to the file
+    with open(refresh_fp, 'w') as ofile:
+        ofile.write(api.refresh_token)
+
 def main():
     # parse args and initialize logging
     options, args = parse_args()
@@ -251,7 +275,10 @@ def main():
     # initialize Pixiv API
     try:
         api = pixiv.PixivAPI()
-        api.login(config['pixiv_username'], config['pixiv_password'])
+        # TODO - Pixiv has removed password authentication, below is a temporary workaround
+        # using refresh tokens
+        #api.login(config['pixiv_username'], config['pixiv_password'])
+        refresh_auth(api, os.path.join(root_dir, 'refresh'))
     except Exception as ex:
         log.error("Failed to initialize Pixiv API: %s" % str(ex))
         sys.exit(1)
