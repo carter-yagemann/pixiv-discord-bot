@@ -140,6 +140,9 @@ cython_debug/
 # Keep example config, ignore the rest
 /*.json
 !/config-example.json
+/config
+/configs
+/*.sh
 
 # history file
 /history

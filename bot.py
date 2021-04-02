@@ -3,7 +3,7 @@
 #
 # Written with love and care by Carter for Justin
 #
-# Copyright © 2020 Carter Yagemann <yagemann@protonmail.com>
+# Copyright © 2021 Carter Yagemann <yagemann@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -37,11 +37,14 @@ from time import sleep
 import pixivpy3 as pixiv
 import requests
 
-prog_ver = '1.0.4'
-prog_use = 'Usage: %prog [options] <config_file>'
+prog_ver = '1.0.5'
+prog_use = 'Usage: %prog [-l] [--logging] config ...'
 
 log = logging.getLogger()
 log_fmt = '%(levelname)7s | %(asctime)-15s | %(message)s'
+
+class ConfigException(Exception):
+    pass
 
 def parse_args():
     """Parses sys.argv"""
@@ -53,8 +56,8 @@ def parse_args():
     options, args = parser.parse_args()
 
     # input validation
-    if len(args) != 1:
-        print("Must specify a configuration file", file=sys.stderr)
+    if len(args) < 1:
+        print("Must specify at least one configuration file", file=sys.stderr)
         parser.print_help()
         sys.exit(1)
 
@@ -182,22 +185,23 @@ def save_history(history_fp, history):
         ofile.write("\n".join(list(history)))
     shutil.move(tmp_fp, history_fp)
 
-def parse_config_or_die(config_fp):
+def parse_config(config_fp):
     """Parses the config file, returning a dictionary.
 
-    If the config is invalid or missing, this function
-    calls sys.exit with an error value.
+    Raises a ConfigException if config is invalid.
     """
     if not os.path.isfile(config_fp):
-        log.error("File not found: %s" % config_fp)
-        sys.exit(1)
+        error = "File not found: %s" % config_fp
+        log.error(error)
+        raise ConfigException(error)
 
     try:
         with open(config_fp) as ofile:
             config = json.load(ofile)
     except Exception as ex:
-        log.error("Failed to read config: %s" % str(ex))
-        sys.exit(1)
+        error = "Failed to read config: %s" % str(ex)
+        log.error(error)
+        raise ConfigException(error)
 
     # validate config file
     required_keys = [('pixiv_username', str), ('pixiv_password', str),
@@ -206,27 +210,32 @@ def parse_config_or_die(config_fp):
                      ('allow_R18-G', bool), ('allow_manga', bool)]
     for key, val_type in required_keys:
         if not key in config:
-            log.error("Config missing required parameter: %s" % key)
-            sys.exit(1)
+            error = "Config missing required parameter: %s" % key
+            log.error(error)
+            raise ConfigException(error)
         if not isinstance(config[key], val_type):
-            log.error("Config parameter %s must be %s" % (key, str(val_type)))
-            sys.exit(1)
+            error = "Config parameter %s must be %s" % (key, str(val_type))
+            log.error(error)
+            raise ConfigException(error)
 
     # sub_tag should be a list of 3-tuples
     for tag in config['sub_tags']:
         if len(tag) != 3:
-            log.error("Each sub-tag must be 3 items: tag, found string, missing string")
-            sys.exit(1)
+            error = "Each sub-tag must be 3 items: tag, found string, missing string"
+            log.error(error)
+            raise ConfigException(error)
         for item in tag:
             if not isinstance(item, str):
-                log.error("All subtag values must be strings: %s" % item)
-                sys.exit(1)
+                error = "All subtag values must be strings: %s" % item
+                log.error(error)
+                raise ConfigException(error)
 
     # discord_hook_urls should be a list of strings
     for url in config['discord_hook_urls']:
         if not isinstance(url, str):
-            log.error("All Discord hook URLs should be strings: %s" % url)
-            sys.exit(1)
+            error = "All Discord hook URLs should be strings: %s" % url
+            log.error(error)
+            raise ConfigException(error)
 
     return config
 
@@ -265,9 +274,6 @@ def main():
     # parse args and initialize logging
     options, args = parse_args()
     init_logging(options.logging)
-    # parse config
-    config_fp = args[0]
-    config = parse_config_or_die(config_fp)
     # some important file paths
     root_dir = os.path.dirname(os.path.realpath(__file__))
     history_fp = os.path.join(root_dir, 'history')
@@ -286,20 +292,27 @@ def main():
     # load history
     history = load_history(history_fp)
 
-    # everybody walk the dinosaur
-    for sub_tag in config['sub_tags']:
+    for config_fp in args:
         try:
-            search_and_post(api, options, config, history, *sub_tag)
-        except pixiv.utils.PixivError as ex:
-            log.error("Pixiv error: %s" % str(ex))
+            config = parse_config(config_fp)
+        except ConfigException:
+            # parse_config already logged an error message
+            continue
 
-    # wildcard
-    if config['wildcard']:
-        try:
-            search_and_post(api, options, config, history, config['main_tag'],
-                    "Today's wildcard is...", "")
-        except pixiv.utils.PixivError as ex:
-            log.error("Pixiv error: %s" % str(ex))
+        # everybody walk the dinosaur
+        for sub_tag in config['sub_tags']:
+            try:
+                search_and_post(api, options, config, history, *sub_tag)
+            except pixiv.utils.PixivError as ex:
+                log.error("Pixiv error: %s" % str(ex))
+
+        # wildcard
+        if config['wildcard']:
+            try:
+                search_and_post(api, options, config, history, config['main_tag'],
+                        "Today's wildcard is...", "")
+            except pixiv.utils.PixivError as ex:
+                log.error("Pixiv error: %s" % str(ex))
 
     # save history
     save_history(history_fp, history)
