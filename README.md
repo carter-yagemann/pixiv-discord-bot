@@ -43,8 +43,8 @@ based on only one tag, you can have an empty sub-tags list and set
 `wildcard` controls whether the bot will additionally pick one image based
 solely on the main tag, without considering the sub-tags.
 
-You can filter what kind of images are picked using `allow_R18`, `allow_R18-G`,
-and `allow_manga`. If you don't know what any of these terms mean, you probably want
+You can filter what kind of images are picked using `allow_R18`.
+If you don't know what this term means, you probably want
 to set allow to `false`.
 
 You can create a Discord hook URL by going to a channel's settings and clicking

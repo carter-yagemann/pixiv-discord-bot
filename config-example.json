@@ -11,7 +11,5 @@
     ["character_b", "Found", "Missed"]
   ],
   "wildcard": false,
-  "allow_R18": false,
-  "allow_R18-G": false,
-  "allow_manga": false
+  "allow_R18": false
 }

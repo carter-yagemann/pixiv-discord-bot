@@ -37,7 +37,7 @@ from time import sleep
 import pixivpy3 as pixiv
 import requests
 
-prog_ver = '1.0.5'
+prog_ver = '1.1.0'
 prog_use = 'Usage: %prog [-l] [--logging] config ...'
 
 log = logging.getLogger()
@@ -69,47 +69,49 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
     webhooks = config['discord_hook_urls']
 
     chosen_urls = None
-    for page in range(1, 100):
-        res = api.search_works(sub_tag, mode='exact_tag', page=page)
-        if not 'response' in res:
-            # out of pages
+    res = api.search_illust(sub_tag,
+            search_target='exact_match_for_tags',
+            sort='date_desc')
+
+    if not 'illusts' in res:
+        log.error("Failed to search for: %s" % sub_tag)
+        return
+
+    for img in res['illusts']:
+        debug_url = list(img['image_urls'].values())[-1]
+
+        if not main_tag in [tag['name'] for tag in img['tags']]:
+            # main tag and sub tag *must* match, this is how we prevent
+            # (for example) fetching character fanart for the wrong
+            # character with the same name!
+            log.debug("Skipping missing tag: %s" % debug_url)
+            continue
+
+        # fetch additional details
+        img_detail = api.illust_detail(img['id'])
+        if not 'illust' in img_detail:
+            continue
+        img_detail = img_detail['illust']
+
+        # certain image types based on config
+        if not config['allow_R18'] and img_detail['x_restrict'] != 0:
+            log.debug("Skipping R18: %s" % debug_url)
+            continue
+
+        # we require a large and medium version, the former because we
+        # want high quality artwork, the latter as a fallback if the former
+        # exceeds Discord's upload limit
+        if not 'large' in img['image_urls'].keys():
+            log.debug("Skipping for not having a large version: %s" % debug_url)
+            continue
+        if not 'medium' in img['image_urls'].keys():
+            log.debug("Skipping for not having a medium version: %s" % debug_url)
+            continue
+
+        # always use large version for checking against the history
+        if not img['image_urls']['large'] in history:
+            chosen_urls = img['image_urls']
             break
-
-        for img in res.response:
-            debug_url = list(img['image_urls'].values())[-1]
-
-            if not main_tag in img['tags']:
-                # main tag and sub tag *must* match, this is how we prevent
-                # (for example) fetching character fanart for the wrong
-                # character with the same name!
-                log.debug("Skipping missing tag: %s" % debug_url)
-                continue
-
-            # certain image types based on config
-            if not config['allow_manga'] and img['is_manga']:
-                log.debug("Skipping manga: %s" % debug_url)
-                continue
-            if not config['allow_R18'] and img['age_limit'] == 'r18':
-                log.debug("Skipping R18: %s" % debug_url)
-                continue
-            if not config['allow_R18-G'] and img['age_limit'] == 'r18-g':
-                log.debug("Skipping R18-G: %s" % debug_url)
-                continue
-
-            # we require a large and px_480mw version, the former because we
-            # want high quality artwork, the latter as a fallback if the former
-            # exceeds Discord's upload limit
-            if not 'large' in img['image_urls'].keys():
-                log.debug("Skipping for not having a large version: %s" % debug_url)
-                continue
-            if not 'px_480mw' in img['image_urls'].keys():
-                log.debug("Skipping for not having a px_480mw version: %s" % debug_url)
-                continue
-
-            # always use large version for checking against the history
-            if not img['image_urls']['large'] in history:
-                chosen_urls = img['image_urls']
-                break
 
         if not chosen_urls is None:
             break
@@ -129,22 +131,22 @@ def search_and_post(api, options, config, history, sub_tag, found_msg, missing_m
             return
 
         # Discord has a 8MB file upload limit. If image is too big, grab the
-        # px_480mw version.
+        # medium version.
         if os.path.getsize(img_path) > 0x800000:
             os.remove(img_path)
 
             try:
-                api.download(chosen_urls['px_480mw'], path='/tmp', name=img_name)
+                api.download(chosen_urls['medium'], path='/tmp', name=img_name)
             except pixiv.utils.PixivError as ex:
                 # again, Pixiv CDN can permanently refuse to serve some images
-                log.warning("Failed to download URL: %s - %s" % (chosen_urls['px_480mw'], str(ex)))
+                log.warning("Failed to download URL: %s - %s" % (chosen_urls['medium'], str(ex)))
                 history.add(chosen_urls['large'])
                 return
 
         # if this is somehow still too large, we're out of luck
         if os.path.getsize(img_path) > 0x800000:
-            log.error("480mw version of image still too large for Discord, "
-                      "cannot upload: %s" % chosen_urls['px_480mw'])
+            log.error("medium version of image still too large for Discord, "
+                      "cannot upload: %s" % chosen_urls['medium'])
         else:
             # ready to post to Discord
             for webhook in webhooks:
@@ -206,8 +208,8 @@ def parse_config(config_fp):
     # validate config file
     required_keys = [('pixiv_username', str), ('pixiv_password', str),
                      ('discord_hook_urls', list), ('main_tag', str),
-                     ('sub_tags', list), ('wildcard', bool), ('allow_R18', bool),
-                     ('allow_R18-G', bool), ('allow_manga', bool)]
+                     ('sub_tags', list), ('wildcard', bool), ('allow_R18', bool)]
+
     for key, val_type in required_keys:
         if not key in config:
             error = "Config missing required parameter: %s" % key
@@ -280,10 +282,9 @@ def main():
 
     # initialize Pixiv API
     try:
-        api = pixiv.PixivAPI()
-        # TODO - Pixiv has removed password authentication, below is a temporary workaround
+        api = pixiv.AppPixivAPI()
+        # Pixiv has removed password authentication, below is a workaround
         # using refresh tokens
-        #api.login(config['pixiv_username'], config['pixiv_password'])
         refresh_auth(api, os.path.join(root_dir, 'refresh'))
     except Exception as ex:
         log.error("Failed to initialize Pixiv API: %s" % str(ex))
